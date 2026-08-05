@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+    <h1>השירים שלי</h1>
+    <p class="subtitle">{{ songs|length }} שיר{% if songs|length != 1 %}ים{% endif %}</p>
+</div>
+
+{% if songs %}
+<div class="songs-grid">
+    {% for song in songs %}
+    <a href="/songs/{{ song[0] }}" class="song-card">
+        <h2>{{ song[1] }}</h2>
+        <span class="date">{{ song[2].strftime('%d.%m.%Y') }}</span>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <div class="empty-icon">🎸</div>
+    <p>עדיין אין שירים פה.</p>
+    <a href="/songs/new" class="btn btn-primary">כתבי שיר ראשון</a>
+</div>
+{% endif %}
+{% endblock %}

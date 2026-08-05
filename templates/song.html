@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="song-page">
+
+    <div class="song-header">
+        <a href="/" class="back-link">← כל השירים</a>
+        <div class="song-actions">
+            <button onclick="toggleEdit()" class="btn btn-secondary" id="edit-btn">עריכה</button>
+            <form method="POST" action="/songs/{{ song.id }}/delete"
+                  onsubmit="return confirm('בטוחה שתרצי למחוק את השיר?')">
+                <button type="submit" class="btn btn-danger">מחיקה</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- View mode -->
+    <div id="view-mode">
+        <h1>{{ song.title }}</h1>
+
+        {% if song.chords %}
+        <div class="content-section">
+            <h3>אקורדים</h3>
+            <p class="chords-display">{{ song.chords }}</p>
+        </div>
+        {% endif %}
+
+        {% if song.lyrics %}
+        <div class="content-section">
+            <h3>מילים</h3>
+            <pre class="lyrics-display">{{ song.lyrics }}</pre>
+        </div>
+        {% endif %}
+
+        {% if not song.chords and not song.lyrics %}
+        <p class="empty-note">לא נוספו מילים או אקורדים עדיין. לחצי עריכה להוסיף.</p>
+        {% endif %}
+    </div>
+
+    <!-- Edit mode -->
+    <div id="edit-mode" style="display:none">
+        <form method="POST" action="/songs/{{ song.id }}/edit">
+            <div class="form-group">
+                <label for="edit-title">שם השיר</label>
+                <input type="text" id="edit-title" name="title" value="{{ song.title }}" required>
+            </div>
+            <div class="form-group">
+                <label for="edit-lyrics">מילים</label>
+                <textarea id="edit-lyrics" name="lyrics" rows="12">{{ song.lyrics or '' }}</textarea>
+            </div>
+            <div class="form-group">
+                <label for="edit-chords">אקורדים</label>
+                <textarea id="edit-chords" name="chords" rows="3">{{ song.chords or '' }}</textarea>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">שמירה</button>
+                <button type="button" onclick="toggleEdit()" class="btn btn-secondary">ביטול</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Recording section -->
+    <div class="recording-section">
+        <h3>הקלטה</h3>
+
+        {% if song.recording %}
+        <div class="existing-recording">
+            <audio controls src="/recordings/{{ song.recording }}" class="audio-player"></audio>
+            <p class="recording-note">הקלטה חדשה תחליף את הקיימת</p>
+        </div>
+        {% endif %}
+
+        <div class="recorder-controls">
+            <button id="record-btn" class="btn btn-record" onclick="startRecording()">
+                🎙 התחל הקלטה
+            </button>
+            <button id="stop-btn" class="btn btn-stop" onclick="stopRecording()" style="display:none">
+                ⏹ עצור
+            </button>
+            <span id="recording-status" class="recording-status"></span>
+        </div>
+
+        <div id="preview-section" style="display:none; margin-top:16px">
+            <p class="recording-note">תצוגה מקדימה — לחצי שמירה לשמור:</p>
+            <audio id="preview-player" controls></audio>
+            <div class="form-actions" style="margin-top:12px">
+                <button onclick="saveRecording()" class="btn btn-primary">💾 שמירת הקלטה</button>
+                <button onclick="discardRecording()" class="btn btn-secondary">ביטול</button>
+            </div>
+        </div>
+
+        <div id="save-status" class="save-status"></div>
+    </div>
+
+</div>
+
+<script>
+    const SONG_ID = {{ song.id }};
+</script>
+<script src="{{ url_for('static', filename='js/recorder.js') }}"></script>
+<script>
+    function toggleEdit() {
+        const view = document.getElementById('view-mode');
+        const edit = document.getElementById('edit-mode');
+        const btn  = document.getElementById('edit-btn');
+        const isEditing = edit.style.display !== 'none';
+        view.style.display = isEditing ? 'block' : 'none';
+        edit.style.display = isEditing ? 'none'  : 'block';
+        btn.textContent    = isEditing ? 'עריכה' : 'ביטול';
+    }
+</script>
+{% endblock %}
