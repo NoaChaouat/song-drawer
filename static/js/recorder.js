@@ -30,16 +30,16 @@ async function startRecording() {
 
         let secs = 0;
         const status = document.getElementById('recording-status');
-        status.textContent = '● מקליט...';
+        status.textContent = '● Recording...';
         window._recInterval = setInterval(() => {
             secs++;
             const m = String(Math.floor(secs / 60)).padStart(2, '0');
             const s = String(secs % 60).padStart(2, '0');
-            status.textContent = `● מקליט... ${m}:${s}`;
+            status.textContent = `● Recording... ${m}:${s}`;
         }, 1000);
 
     } catch (err) {
-        alert('לא ניתן לגשת למיקרופון. אנא אשרי הרשאה בדפדפן.');
+        alert('Could not access the microphone. Please allow microphone permission in your browser.');
     }
 }
 
@@ -54,7 +54,7 @@ function stopRecording() {
 async function saveRecording() {
     if (!audioBlob) return;
     const status = document.getElementById('save-status');
-    status.textContent = 'שומר...';
+    status.textContent = 'Saving...';
     status.className = 'save-status';
 
     const formData = new FormData();
@@ -66,14 +66,14 @@ async function saveRecording() {
             body: formData
         });
         if (res.ok) {
-            status.textContent = '✓ ההקלטה נשמרה!';
+            status.textContent = '✓ Recording saved!';
             status.className = 'save-status success';
             setTimeout(() => location.reload(), 800);
         } else {
-            throw new Error('שגיאה');
+            throw new Error();
         }
     } catch {
-        status.textContent = 'שגיאה בשמירה. נסי שוב.';
+        status.textContent = 'Error saving. Please try again.';
         status.className = 'save-status error';
     }
 }
@@ -83,6 +83,5 @@ function discardRecording() {
     audioChunks = [];
     document.getElementById('preview-section').style.display = 'none';
     document.getElementById('save-status').textContent = '';
-    const preview = document.getElementById('preview-player');
-    preview.src = '';
+    document.getElementById('preview-player').src = '';
 }

@@ -3,13 +3,17 @@
 <div class="song-page">
 
     <div class="song-header">
-        <a href="/" class="back-link">← כל השירים</a>
+        <a href="/" class="back-link">← All Songs</a>
         <div class="song-actions">
-            <button onclick="toggleEdit()" class="btn btn-secondary" id="edit-btn">עריכה</button>
-            <form method="POST" action="/songs/{{ song.id }}/delete"
-                  onsubmit="return confirm('בטוחה שתרצי למחוק את השיר?')">
-                <button type="submit" class="btn btn-danger">מחיקה</button>
-            </form>
+            <button onclick="toggleEdit()" class="btn btn-secondary" id="edit-btn">Edit</button>
+            <button onclick="confirmDelete()" class="btn btn-danger" id="delete-btn">Delete</button>
+            <div id="delete-confirm" style="display:none" class="delete-confirm">
+                <span>Delete this song?</span>
+                <form method="POST" action="/songs/{{ song.id }}/delete" style="display:inline">
+                    <button type="submit" class="btn btn-danger">Yes, delete</button>
+                </form>
+                <button onclick="cancelDelete()" class="btn btn-secondary">Cancel</button>
+            </div>
         </div>
     </div>
 
@@ -19,20 +23,20 @@
 
         {% if song.chords %}
         <div class="content-section">
-            <h3>אקורדים</h3>
+            <h3>Chords</h3>
             <p class="chords-display">{{ song.chords }}</p>
         </div>
         {% endif %}
 
         {% if song.lyrics %}
         <div class="content-section">
-            <h3>מילים</h3>
+            <h3>Lyrics</h3>
             <pre class="lyrics-display">{{ song.lyrics }}</pre>
         </div>
         {% endif %}
 
         {% if not song.chords and not song.lyrics %}
-        <p class="empty-note">לא נוספו מילים או אקורדים עדיין. לחצי עריכה להוסיף.</p>
+        <p class="empty-note">No lyrics or chords yet. Click Edit to add some.</p>
         {% endif %}
     </div>
 
@@ -40,51 +44,51 @@
     <div id="edit-mode" style="display:none">
         <form method="POST" action="/songs/{{ song.id }}/edit">
             <div class="form-group">
-                <label for="edit-title">שם השיר</label>
+                <label for="edit-title">Song Title</label>
                 <input type="text" id="edit-title" name="title" value="{{ song.title }}" required>
             </div>
             <div class="form-group">
-                <label for="edit-lyrics">מילים</label>
+                <label for="edit-lyrics">Lyrics</label>
                 <textarea id="edit-lyrics" name="lyrics" rows="12">{{ song.lyrics or '' }}</textarea>
             </div>
             <div class="form-group">
-                <label for="edit-chords">אקורדים</label>
+                <label for="edit-chords">Chords</label>
                 <textarea id="edit-chords" name="chords" rows="3">{{ song.chords or '' }}</textarea>
             </div>
             <div class="form-actions">
-                <button type="submit" class="btn btn-primary">שמירה</button>
-                <button type="button" onclick="toggleEdit()" class="btn btn-secondary">ביטול</button>
+                <button type="submit" class="btn btn-primary">Save</button>
+                <button type="button" onclick="toggleEdit()" class="btn btn-secondary">Cancel</button>
             </div>
         </form>
     </div>
 
     <!-- Recording section -->
     <div class="recording-section">
-        <h3>הקלטה</h3>
+        <h3>Recording</h3>
 
         {% if song.recording %}
         <div class="existing-recording">
             <audio controls src="/recordings/{{ song.recording }}" class="audio-player"></audio>
-            <p class="recording-note">הקלטה חדשה תחליף את הקיימת</p>
+            <p class="recording-note">A new recording will replace the existing one.</p>
         </div>
         {% endif %}
 
         <div class="recorder-controls">
             <button id="record-btn" class="btn btn-record" onclick="startRecording()">
-                🎙 התחל הקלטה
+                🎙 Start Recording
             </button>
             <button id="stop-btn" class="btn btn-stop" onclick="stopRecording()" style="display:none">
-                ⏹ עצור
+                ⏹ Stop
             </button>
             <span id="recording-status" class="recording-status"></span>
         </div>
 
         <div id="preview-section" style="display:none; margin-top:16px">
-            <p class="recording-note">תצוגה מקדימה — לחצי שמירה לשמור:</p>
+            <p class="recording-note">Preview — click Save to keep it:</p>
             <audio id="preview-player" controls></audio>
             <div class="form-actions" style="margin-top:12px">
-                <button onclick="saveRecording()" class="btn btn-primary">💾 שמירת הקלטה</button>
-                <button onclick="discardRecording()" class="btn btn-secondary">ביטול</button>
+                <button onclick="saveRecording()" class="btn btn-primary">💾 Save Recording</button>
+                <button onclick="discardRecording()" class="btn btn-secondary">Discard</button>
             </div>
         </div>
 
@@ -95,9 +99,12 @@
 
 <script>
     const SONG_ID = {{ song.id }};
+    const OPEN_EDIT = {{ 'true' if request.args.get('edit') else 'false' }};
 </script>
 <script src="{{ url_for('static', filename='js/recorder.js') }}"></script>
 <script>
+    if (OPEN_EDIT) toggleEdit();
+
     function toggleEdit() {
         const view = document.getElementById('view-mode');
         const edit = document.getElementById('edit-mode');
@@ -105,7 +112,17 @@
         const isEditing = edit.style.display !== 'none';
         view.style.display = isEditing ? 'block' : 'none';
         edit.style.display = isEditing ? 'none'  : 'block';
-        btn.textContent    = isEditing ? 'עריכה' : 'ביטול';
+        btn.textContent    = isEditing ? 'Edit'  : 'Cancel';
+    }
+
+    function confirmDelete() {
+        document.getElementById('delete-btn').style.display = 'none';
+        document.getElementById('delete-confirm').style.display = 'inline-flex';
+    }
+
+    function cancelDelete() {
+        document.getElementById('delete-btn').style.display = 'inline-flex';
+        document.getElementById('delete-confirm').style.display = 'none';
     }
 </script>
 {% endblock %}

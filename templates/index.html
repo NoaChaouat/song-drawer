@@ -1,24 +1,87 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="page-header">
-    <h1>השירים שלי</h1>
-    <p class="subtitle">{{ songs|length }} שיר{% if songs|length != 1 %}ים{% endif %}</p>
+    <div>
+        <h1>My Songs</h1>
+        <p class="subtitle">{{ songs|length }} song{% if songs|length != 1 %}s{% endif %}</p>
+    </div>
+    {% if songs %}
+    <button onclick="toggleSelectMode()" class="btn btn-secondary" id="select-btn">Select</button>
+    {% endif %}
 </div>
 
 {% if songs %}
-<div class="songs-grid">
-    {% for song in songs %}
-    <a href="/songs/{{ song[0] }}" class="song-card">
-        <h2>{{ song[1] }}</h2>
-        <span class="date">{{ song[2].strftime('%d.%m.%Y') }}</span>
-    </a>
-    {% endfor %}
-</div>
+<form method="POST" action="/songs/bulk-delete" id="bulk-form">
+    <div id="bulk-bar" style="display:none" class="bulk-bar">
+        <span id="selected-count">0 selected</span>
+        <button type="button" onclick="selectAll()" class="btn btn-secondary">Select All</button>
+        <button type="submit" class="btn btn-danger" id="bulk-delete-btn" disabled>Delete Selected</button>
+    </div>
+
+    <div class="songs-grid">
+        {% for song in songs %}
+        <div class="song-card-wrap">
+            <input type="checkbox" name="song_ids" value="{{ song[0] }}"
+                   class="song-checkbox" id="cb-{{ song[0] }}"
+                   onchange="updateBulkBar()">
+            <label for="cb-{{ song[0] }}" class="song-card" id="card-{{ song[0] }}">
+                <div class="card-check">✓</div>
+                <h2>{{ song[1] }}</h2>
+                <span class="date">{{ song[2].strftime('%m/%d/%Y') }}</span>
+                <div class="card-actions" onclick="event.stopPropagation()">
+                    <a href="/songs/{{ song[0] }}" class="card-action-btn">Open</a>
+                    <a href="/songs/{{ song[0] }}?edit=1" class="card-action-btn">Edit</a>
+                    <button type="button" class="card-action-btn danger"
+                            onclick="deleteSingle({{ song[0] }}, '{{ song[1] }}')">Delete</button>
+                </div>
+            </label>
+        </div>
+        {% endfor %}
+    </div>
+</form>
+
+<form method="POST" id="single-delete-form" style="display:none">
+    <input type="hidden" name="_dummy" value="1">
+</form>
+
 {% else %}
 <div class="empty-state">
     <div class="empty-icon">🎸</div>
-    <p>עדיין אין שירים פה.</p>
-    <a href="/songs/new" class="btn btn-primary">כתבי שיר ראשון</a>
+    <p>No songs yet.</p>
+    <a href="/songs/new" class="btn btn-primary">Write your first song</a>
 </div>
 {% endif %}
+
+<script>
+let selectMode = false;
+
+function toggleSelectMode() {
+    selectMode = !selectMode;
+    const btn = document.getElementById('select-btn');
+    document.getElementById('bulk-bar').style.display = selectMode ? 'flex' : 'none';
+    document.querySelectorAll('.song-card').forEach(c => c.classList.toggle('select-mode', selectMode));
+    document.querySelectorAll('.song-checkbox').forEach(cb => { cb.checked = false; });
+    btn.textContent = selectMode ? 'Cancel' : 'Select';
+    updateBulkBar();
+}
+
+function updateBulkBar() {
+    const checked = document.querySelectorAll('.song-checkbox:checked');
+    document.getElementById('selected-count').textContent = checked.length + ' selected';
+    document.getElementById('bulk-delete-btn').disabled = checked.length === 0;
+}
+
+function selectAll() {
+    const checkboxes = document.querySelectorAll('.song-checkbox');
+    const allChecked = [...checkboxes].every(cb => cb.checked);
+    checkboxes.forEach(cb => cb.checked = !allChecked);
+    updateBulkBar();
+}
+
+function deleteSingle(id, title) {
+    const form = document.getElementById('single-delete-form');
+    form.action = '/songs/' + id + '/delete';
+    form.submit();
+}
+</script>
 {% endblock %}

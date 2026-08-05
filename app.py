@@ -97,6 +97,27 @@ def delete_song(song_id):
     return redirect(url_for('index'))
 
 
+@app.route('/songs/bulk-delete', methods=['POST'])
+def bulk_delete():
+    ids = request.form.getlist('song_ids')
+    if not ids:
+        return redirect(url_for('index'))
+    conn = get_db()
+    cur = conn.cursor()
+    for song_id in ids:
+        cur.execute("SELECT recording FROM songs WHERE id=%s", (song_id,))
+        row = cur.fetchone()
+        if row and row[0]:
+            filepath = os.path.join(RECORDINGS_DIR, row[0])
+            if os.path.exists(filepath):
+                os.remove(filepath)
+        cur.execute("DELETE FROM songs WHERE id=%s", (song_id,))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect(url_for('index'))
+
+
 @app.route('/songs/<int:song_id>/recording', methods=['POST'])
 def upload_recording(song_id):
     audio = request.files.get('audio')

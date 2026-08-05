@@ -263,3 +263,111 @@ main {
 .save-status.error   { color: var(--danger); }
 
 #preview-player { width: 100%; }
+
+/* BULK BAR */
+.bulk-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--surface);
+    border: 1.5px solid var(--accent);
+    border-radius: 8px;
+    padding: 10px 16px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+.bulk-bar span { font-weight: 600; color: var(--accent); margin-left: auto; }
+
+/* SONG CARD WRAP + CHECKBOX */
+.song-card-wrap { position: relative; }
+
+.song-checkbox {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    z-index: 2;
+    display: none;
+}
+
+.song-card {
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+.card-check {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 22px;
+    height: 22px;
+    border: 2px solid var(--border);
+    border-radius: 6px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    background: var(--surface);
+    color: var(--accent);
+    font-weight: 700;
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.song-card.select-mode { cursor: default; }
+.song-card.select-mode .card-check { display: flex; }
+.song-card.select-mode h2 { padding-right: 32px; }
+.song-card.select-mode .card-actions { display: none; }
+
+.song-checkbox:checked + .song-card .card-check {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+}
+.song-checkbox:checked + .song-card {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(108,71,255,0.15);
+}
+
+/* CARD ACTIONS */
+.card-actions {
+    display: none;
+    gap: 6px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+}
+
+.song-card:hover .card-actions { display: flex; }
+
+.card-action-btn {
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    background: var(--bg);
+    color: var(--text);
+    transition: background 0.15s;
+}
+.card-action-btn:hover { background: var(--border); }
+.card-action-btn.danger { color: var(--danger); }
+.card-action-btn.danger:hover { background: #fde8e6; }
+
+/* DELETE CONFIRM (inline on song page) */
+.delete-confirm {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #fde8e6;
+    border: 1.5px solid var(--danger);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--danger);
+}
