@@ -207,7 +207,11 @@ def upload_recording(song_id):
         old = os.path.join(RECORDINGS_DIR, row[0])
         if os.path.exists(old):
             os.remove(old)
-    filename = f"{song_id}_{int(time.time())}.webm"
+    orig_name = audio.filename or 'recording.webm'
+    ext = orig_name.rsplit('.', 1)[1].lower() if '.' in orig_name else 'webm'
+    if ext not in ('webm', 'mp4', 'ogg', 'm4a'):
+        ext = 'webm'
+    filename = f"{song_id}_{int(time.time())}.{ext}"
     audio.save(os.path.join(RECORDINGS_DIR, filename))
     cur.execute("UPDATE songs SET recording=%s, updated_at=NOW() WHERE id=%s", (filename, song_id))
     conn.commit()

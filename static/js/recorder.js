@@ -2,18 +2,47 @@ let mediaRecorder = null;
 let audioChunks = [];
 let audioBlob = null;
 
+function getSupportedMimeType() {
+    if (!window.MediaRecorder) return '';
+    const types = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4',
+        'audio/ogg;codecs=opus',
+        'audio/ogg',
+    ];
+    for (const type of types) {
+        if (MediaRecorder.isTypeSupported(type)) return type;
+    }
+    return '';
+}
+
+function mimeToExt(mime) {
+    if (mime.includes('mp4')) return 'mp4';
+    if (mime.includes('ogg')) return 'ogg';
+    return 'webm';
+}
+
 async function startRecording() {
+    if (!window.MediaRecorder) {
+        alert('הדפדפן שלך אינו תומך בהקלטה. נסי ב-Chrome או עדכני את Safari.');
+        return;
+    }
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         audioChunks = [];
-        mediaRecorder = new MediaRecorder(stream);
+        const mimeType = getSupportedMimeType();
+        mediaRecorder = mimeType
+            ? new MediaRecorder(stream, { mimeType })
+            : new MediaRecorder(stream);
 
         mediaRecorder.ondataavailable = (e) => {
             if (e.data.size > 0) audioChunks.push(e.data);
         };
 
         mediaRecorder.onstop = () => {
-            audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            const type = mediaRecorder.mimeType || mimeType || 'audio/webm';
+            audioBlob = new Blob(audioChunks, { type });
             const url = URL.createObjectURL(audioBlob);
             const preview = document.getElementById('preview-player');
             preview.src = url;
@@ -58,8 +87,9 @@ async function saveRecording() {
     status.textContent = 'Saving...';
     status.className = 'save-status';
 
+    const ext = mimeToExt(audioBlob.type);
     const formData = new FormData();
-    formData.append('audio', audioBlob, 'recording.webm');
+    formData.append('audio', audioBlob, `recording.${ext}`);
 
     try {
         const res = await fetch(`/songs/${SONG_ID}/recording`, {

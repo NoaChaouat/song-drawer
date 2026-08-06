@@ -9,9 +9,10 @@ const SECTION_LABELS = {
     part_d:  'Part D'
 };
 
-let blockCounter  = 0;
-let popupState    = null;
-let popupShowTime = 0;
+let blockCounter   = 0;
+let popupState     = null;
+let popupShowTime  = 0;
+let selectionTimer = null;
 
 function nextId() { return ++blockCounter; }
 
@@ -50,15 +51,17 @@ function hidePopup() {
 }
 
 function handleSelection(e, ta, blockId) {
-    setTimeout(() => {
+    const mouseX = e.clientX, mouseY = e.clientY;
+    clearTimeout(selectionTimer);
+    selectionTimer = setTimeout(() => {
         const start = ta.selectionStart;
         const end   = ta.selectionEnd;
         if (start !== end && ta.value.substring(start, end).trim()) {
-            showPopup(e.clientX, e.clientY, blockId, start, end);
+            showPopup(mouseX, mouseY, blockId, start, end);
         } else {
             hidePopup();
         }
-    }, 0);
+    }, 200);
 }
 
 /* ── close popup on outside click (300ms grace period) ── */
