@@ -42,23 +42,54 @@ function evalSelection(ta, blockId) {
     const start = ta.selectionStart;
     const end   = ta.selectionEnd;
     if (start !== end && ta.value.substring(start, end).trim()) {
-        popupState = { blockId, selStart: start, selEnd: end };
+        const fullText = ta.value;
+        // Pre-compute everything now so focus-loss doesn't matter
+        popupState = {
+            blockId,
+            before:   fullText.substring(0, start).trimEnd(),
+            selected: fullText.substring(start, end).trim(),
+            after:    fullText.substring(end).trimStart(),
+        };
         setSelectionActive(true);
     } else {
         hidePopup();
     }
 }
 
-function handleSelection(e, ta, blockId) {
+function scheduleEval(ta, blockId, delay) {
     clearTimeout(selectionTimer);
-    selectionTimer = setTimeout(() => evalSelection(ta, blockId), 200);
+    selectionTimer = setTimeout(() => evalSelection(ta, blockId), delay);
 }
 
-function handleTouchSelection(ta, blockId) {
-    clearTimeout(selectionTimer);
-    // longer delay on touch so iOS finishes showing selection handles
-    selectionTimer = setTimeout(() => evalSelection(ta, blockId), 400);
+/* ── selectionchange (most reliable on iOS) ── */
+document.addEventListener('selectionchange', () => {
+    const active = document.activeElement;
+    if (!active) return;
+    const isEditor = active.classList.contains('raw-editor') || active.classList.contains('section-lyrics');
+    if (!isEditor) return;
+    const blockItem = active.closest('.block-item');
+    if (!blockItem) return;
+    scheduleEval(active, blockItem.dataset.blockId, 80);
+});
+
+/* ── mouseup fallback (desktop) ── */
+function handleSelection(ta, blockId) {
+    scheduleEval(ta, blockId, 150);
 }
+
+/* ── section bar clicks — prevent blur on touch, convert on click ── */
+document.addEventListener('touchstart', e => {
+    const btn = e.target.closest('.section-bar-btn');
+    if (!btn || !btn.classList.contains('active')) return;
+    e.preventDefault(); // keep textarea focused & selection intact
+    convertSelection(btn.dataset.type);
+}, { passive: false });
+
+document.addEventListener('click', e => {
+    const btn = e.target.closest('.section-bar-btn');
+    if (!btn || !btn.classList.contains('active')) return;
+    convertSelection(btn.dataset.type);
+});
 
 /* ── close on outside click ── */
 document.addEventListener('mousedown', e => {
@@ -80,9 +111,8 @@ function makeTextBlock(content) {
     ta.dir         = 'auto';
     ta.value       = content || '';
     ta.placeholder = 'Write here...';
-    ta.addEventListener('input',    () => { autoResize(ta); updateTitlePreview(); });
-    ta.addEventListener('mouseup',  e => handleSelection(e, ta, id));
-    ta.addEventListener('touchend', () => handleTouchSelection(ta, id));
+    ta.addEventListener('input', () => { autoResize(ta); updateTitlePreview(); });
+    ta.addEventListener('mouseup',  () => handleSelection(ta, id));
     ta.addEventListener('keyup',    () => { if (ta.selectionStart === ta.selectionEnd) hidePopup(); });
 
     div.appendChild(ta);
@@ -165,9 +195,8 @@ function makeSectionBlock(type, lyrics, chords) {
     lyricsArea.dir         = 'auto';
     lyricsArea.value       = lyrics || '';
     lyricsArea.placeholder = `Write ${SECTION_LABELS[type]} lyrics...`;
-    lyricsArea.addEventListener('input',    () => { autoResize(lyricsArea); updateTitlePreview(); });
-    lyricsArea.addEventListener('mouseup',  e => handleSelection(e, lyricsArea, id));
-    lyricsArea.addEventListener('touchend', () => handleTouchSelection(lyricsArea, id));
+    lyricsArea.addEventListener('input', () => { autoResize(lyricsArea); updateTitlePreview(); });
+    lyricsArea.addEventListener('mouseup',  () => handleSelection(lyricsArea, id));
     lyricsArea.addEventListener('keyup',    () => { if (lyricsArea.selectionStart === lyricsArea.selectionEnd) hidePopup(); });
 
     div.appendChild(header);
@@ -184,17 +213,11 @@ function makeSectionBlock(type, lyrics, chords) {
 /* ── convert selected text → section ── */
 function convertSelection(type) {
     if (!popupState) return;
-    const { blockId, selStart, selEnd } = popupState;
+    const { blockId, before, selected, after } = popupState;
     hidePopup();
 
     const blockItem = document.querySelector(`.block-item[data-block-id="${blockId}"]`);
     if (!blockItem) return;
-
-    const ta       = blockItem.querySelector('.raw-editor') || blockItem.querySelector('.section-lyrics');
-    const fullText = ta.value;
-    const before   = fullText.substring(0, selStart).trimEnd();
-    const selected = fullText.substring(selStart, selEnd).trim();
-    const after    = fullText.substring(selEnd).trimStart();
 
     const container = blockItem.parentNode;
     const refNode   = blockItem.nextSibling;
