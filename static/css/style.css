@@ -747,37 +747,58 @@ main {
 /* Only block → fill viewport */
 .block-item:first-child:last-child .raw-editor { min-height: calc(100vh - 130px); }
 
-/* SELECTION POPUP */
-#selection-popup {
-    position: fixed;
-    z-index: 1000;
-    display: none;
-    flex-wrap: wrap;
-    gap: 4px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 7px;
-    box-shadow: 0 8px 32px rgba(0,0,0,.65);
-    max-width: 290px;
+/* SECTION BAR */
+.section-bar {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+    flex-shrink: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
 }
-.popup-btn {
+.section-bar::-webkit-scrollbar { display: none; }
+.section-bar-label {
+    font-size: .65rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-right: 2px;
+}
+.section-bar-btn {
     font-size: .65rem;
     font-weight: 700;
-    letter-spacing: .08em;
+    letter-spacing: .06em;
     text-transform: uppercase;
-    padding: 5px 10px;
-    border-radius: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
     border: 1px solid var(--border);
-    background: var(--surface2);
+    background: transparent;
     color: var(--text-muted);
-    cursor: pointer;
     white-space: nowrap;
+    flex-shrink: 0;
     font-family: 'DM Sans', sans-serif;
-    transition: all .1s;
-    line-height: 1.4;
+    opacity: 0.4;
+    pointer-events: none;
+    transition: opacity .15s, background .15s, color .15s, border-color .15s;
+    cursor: default;
+    touch-action: manipulation;
 }
-.popup-btn:hover { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); outline: none; }
+.section-bar-btn.active {
+    opacity: 1;
+    pointer-events: auto;
+    cursor: pointer;
+    color: var(--text);
+    border-color: var(--accent);
+}
+.section-bar-btn.active:hover,
+.section-bar-btn.active:active {
+    background: var(--accent-soft);
+    color: var(--accent);
+}
 
 /* NEW SECTION TAG COLORS */
 .section-tag-bridge { background: rgba(190,100,210,.15); color: #c870d8; }
@@ -990,9 +1011,6 @@ main {
 
     /* Action buttons — smaller on mobile */
     .section-action-btn { padding: 2px 5px; font-size: .7rem; }
-
-    /* Popup — full width on small screens */
-    #selection-popup { max-width: calc(100vw - 32px); }
 
     /* View mode */
     .view-mode { padding: 20px 16px 60px; }

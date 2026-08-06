@@ -11,7 +11,6 @@ const SECTION_LABELS = {
 
 let blockCounter   = 0;
 let popupState     = null;
-let popupShowTime  = 0;
 let selectionTimer = null;
 
 function nextId() { return ++blockCounter; }
@@ -28,46 +27,44 @@ function togglePanel(id) {
     document.getElementById(id).classList.toggle('open');
 }
 
-/* ── popup ── */
-function showPopup(mouseX, mouseY, blockId, selStart, selEnd) {
-    popupState    = { blockId, selStart, selEnd };
-    popupShowTime = Date.now();
-    const popup = document.getElementById('selection-popup');
-    popup.style.display   = 'flex';
-    popup.style.left      = mouseX + 'px';
-    popup.style.top       = mouseY + 'px';
-    popup.style.transform = 'translate(-50%, calc(-100% - 8px))';
-    requestAnimationFrame(() => {
-        const r = popup.getBoundingClientRect();
-        if (r.left < 8) popup.style.left = (mouseX + 8 - r.left) + 'px';
-        if (r.right > window.innerWidth - 8) popup.style.left = (mouseX - (r.right - window.innerWidth + 8)) + 'px';
-        if (r.top < 8) popup.style.transform = 'translate(-50%, 8px)';
-    });
+/* ── section bar ── */
+function setSelectionActive(on) {
+    document.querySelectorAll('.section-bar-btn').forEach(b => b.classList.toggle('active', on));
 }
 
 function hidePopup() {
     popupState = null;
-    document.getElementById('selection-popup').style.display = 'none';
+    setSelectionActive(false);
+}
+
+/* ── selection tracking ── */
+function evalSelection(ta, blockId) {
+    const start = ta.selectionStart;
+    const end   = ta.selectionEnd;
+    if (start !== end && ta.value.substring(start, end).trim()) {
+        popupState = { blockId, selStart: start, selEnd: end };
+        setSelectionActive(true);
+    } else {
+        hidePopup();
+    }
 }
 
 function handleSelection(e, ta, blockId) {
-    const mouseX = e.clientX, mouseY = e.clientY;
     clearTimeout(selectionTimer);
-    selectionTimer = setTimeout(() => {
-        const start = ta.selectionStart;
-        const end   = ta.selectionEnd;
-        if (start !== end && ta.value.substring(start, end).trim()) {
-            showPopup(mouseX, mouseY, blockId, start, end);
-        } else {
-            hidePopup();
-        }
-    }, 200);
+    selectionTimer = setTimeout(() => evalSelection(ta, blockId), 200);
 }
 
-/* ── close popup on outside click (300ms grace period) ── */
+function handleTouchSelection(ta, blockId) {
+    clearTimeout(selectionTimer);
+    // longer delay on touch so iOS finishes showing selection handles
+    selectionTimer = setTimeout(() => evalSelection(ta, blockId), 400);
+}
+
+/* ── close on outside click ── */
 document.addEventListener('mousedown', e => {
-    if (Date.now() - popupShowTime < 300) return;
-    if (!document.getElementById('selection-popup').contains(e.target)) hidePopup();
+    if (e.target.closest('.section-bar-btn')) return;
+    if (e.target.closest('.raw-editor, .section-lyrics')) return;
+    hidePopup();
 });
 
 /* ── block builders ── */
@@ -83,8 +80,9 @@ function makeTextBlock(content) {
     ta.dir         = 'auto';
     ta.value       = content || '';
     ta.placeholder = 'Write here...';
-    ta.addEventListener('input', () => { autoResize(ta); updateTitlePreview(); });
+    ta.addEventListener('input',    () => { autoResize(ta); updateTitlePreview(); });
     ta.addEventListener('mouseup',  e => handleSelection(e, ta, id));
+    ta.addEventListener('touchend', () => handleTouchSelection(ta, id));
     ta.addEventListener('keyup',    () => { if (ta.selectionStart === ta.selectionEnd) hidePopup(); });
 
     div.appendChild(ta);
@@ -125,11 +123,11 @@ function makeSectionBlock(type, lyrics, chords) {
 
     function mkActionBtn(label, title, cls, handler) {
         const btn = document.createElement('button');
-        btn.type      = 'button';
-        btn.className = 'section-action-btn' + (cls ? ' ' + cls : '');
-        btn.title     = title;
+        btn.type        = 'button';
+        btn.className   = 'section-action-btn' + (cls ? ' ' + cls : '');
+        btn.title       = title;
         btn.textContent = label;
-        btn.onclick   = handler;
+        btn.onclick     = handler;
         return btn;
     }
 
@@ -167,8 +165,9 @@ function makeSectionBlock(type, lyrics, chords) {
     lyricsArea.dir         = 'auto';
     lyricsArea.value       = lyrics || '';
     lyricsArea.placeholder = `Write ${SECTION_LABELS[type]} lyrics...`;
-    lyricsArea.addEventListener('input', () => { autoResize(lyricsArea); updateTitlePreview(); });
+    lyricsArea.addEventListener('input',    () => { autoResize(lyricsArea); updateTitlePreview(); });
     lyricsArea.addEventListener('mouseup',  e => handleSelection(e, lyricsArea, id));
+    lyricsArea.addEventListener('touchend', () => handleTouchSelection(lyricsArea, id));
     lyricsArea.addEventListener('keyup',    () => { if (lyricsArea.selectionStart === lyricsArea.selectionEnd) hidePopup(); });
 
     div.appendChild(header);
@@ -204,7 +203,6 @@ function convertSelection(type) {
     const toInsert   = [];
     if (before) toInsert.push(makeTextBlock(before));
     toInsert.push(newSection);
-    // Always add a text block after — lets the user keep writing below the section
     toInsert.push(makeTextBlock(after));
 
     if (refNode) toInsert.forEach(el => container.insertBefore(el, refNode));
