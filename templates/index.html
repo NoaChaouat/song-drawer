@@ -26,13 +26,23 @@
                    onchange="updateBulkBar()">
             <label for="cb-{{ song[0] }}" class="song-card" id="card-{{ song[0] }}">
                 <div class="card-check">✓</div>
-                <h2>{{ song[1] }}</h2>
-                <span class="date">{{ song[2].strftime('%m/%d/%Y') }}</span>
+
+                {% if song[3] %}
+                <img class="card-cover" src="/covers/{{ song[3] }}" alt="{{ song[1] }}">
+                {% else %}
+                <div class="card-cover-placeholder">🎵</div>
+                {% endif %}
+
+                <div class="card-body">
+                    <h2>{{ song[1] }}</h2>
+                    <span class="date">{{ song[2].strftime('%B %d, %Y') }}</span>
+                </div>
+
                 <div class="card-actions" onclick="event.stopPropagation()">
                     <a href="/songs/{{ song[0] }}" class="card-action-btn">Open</a>
                     <a href="/songs/{{ song[0] }}?edit=1" class="card-action-btn">Edit</a>
                     <button type="button" class="card-action-btn danger"
-                            onclick="deleteSingle({{ song[0] }}, '{{ song[1] }}')">Delete</button>
+                            onclick="deleteSingle({{ song[0] }}, '{{ song[1] | e }}')">Delete</button>
                 </div>
             </label>
         </div>

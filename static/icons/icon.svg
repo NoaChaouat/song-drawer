@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="110" fill="#141210"/>
+  <!-- stem -->
+  <rect x="240" y="130" width="28" height="238" rx="8" fill="#d4a853"/>
+  <!-- flag curve -->
+  <path d="M240 130 C320 100 400 155 388 250 C380 305 310 318 248 310"
+        fill="none" stroke="#d4a853" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- note head -->
+  <ellipse cx="193" cy="365" rx="72" ry="50" transform="rotate(-15 193 365)" fill="#d4a853"/>
+</svg>

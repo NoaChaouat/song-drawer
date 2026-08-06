@@ -2,17 +2,32 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Song Drawer</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>מגירת שירים</title>
+    <meta name="theme-color" content="#141210">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="שירים">
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="apple-touch-icon" href="/static/icons/icon.svg">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=6">
 </head>
 <body>
+    {% block nav %}
     <nav>
         <a href="/" class="nav-logo">🎵 Song Drawer</a>
         <a href="/songs/new" class="btn btn-primary">+ New Song</a>
     </nav>
+    {% endblock %}
+    {% block full_page %}
     <main>
         {% block content %}{% endblock %}
     </main>
+    {% endblock %}
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch(() => {});
+        }
+    </script>
 </body>
 </html>

@@ -26,7 +26,8 @@ async function startRecording() {
         document.getElementById('record-btn').style.display = 'none';
         document.getElementById('stop-btn').style.display = 'inline-flex';
         document.getElementById('preview-section').style.display = 'none';
-        document.getElementById('save-status').textContent = '';
+        const ss = document.getElementById('save-status');
+        if (ss) ss.textContent = '';
 
         let secs = 0;
         const status = document.getElementById('recording-status');
@@ -82,6 +83,7 @@ function discardRecording() {
     audioBlob = null;
     audioChunks = [];
     document.getElementById('preview-section').style.display = 'none';
-    document.getElementById('save-status').textContent = '';
+    const ss = document.getElementById('save-status');
+    if (ss) ss.textContent = '';
     document.getElementById('preview-player').src = '';
 }

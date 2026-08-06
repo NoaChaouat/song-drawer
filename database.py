@@ -4,14 +4,20 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DB_NAME = os.environ.get('PGDATABASE', 'songdrawer')
-DB_USER = os.environ.get('PGUSER', 'postgres')
-DB_HOST = os.environ.get('PGHOST', 'localhost')
-DB_PASS = os.environ.get('PGPASSWORD', '')
-
 
 def get_db():
-    return psycopg2.connect(dbname=DB_NAME, user=DB_USER, host=DB_HOST, password=DB_PASS)
+    # Render (and Railway) provide DATABASE_URL; fall back to individual vars for local dev
+    url = os.environ.get('DATABASE_URL')
+    if url:
+        # psycopg2 requires postgresql://, Render gives postgres://
+        url = url.replace('postgres://', 'postgresql://', 1)
+        return psycopg2.connect(url)
+    return psycopg2.connect(
+        dbname=os.environ.get('PGDATABASE', 'songdrawer'),
+        user=os.environ.get('PGUSER', 'postgres'),
+        host=os.environ.get('PGHOST', 'localhost'),
+        password=os.environ.get('PGPASSWORD', ''),
+    )
 
 
 def init_db():
@@ -24,9 +30,16 @@ def init_db():
             lyrics     TEXT,
             chords     TEXT,
             recording  VARCHAR(500),
+            cover_image VARCHAR(500),
             created_at TIMESTAMP DEFAULT NOW(),
             updated_at TIMESTAMP DEFAULT NOW()
         )
+    """)
+    cur.execute("""
+        ALTER TABLE songs ADD COLUMN IF NOT EXISTS cover_image VARCHAR(500)
+    """)
+    cur.execute("""
+        ALTER TABLE songs ADD COLUMN IF NOT EXISTS sections TEXT
     """)
     conn.commit()
     cur.close()

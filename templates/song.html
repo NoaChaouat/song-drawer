@@ -1,128 +1,242 @@
 {% extends 'base.html' %}
-{% block content %}
-<div class="song-page">
 
-    <div class="song-header">
-        <a href="/" class="back-link">← All Songs</a>
-        <div class="song-actions">
-            <button onclick="toggleEdit()" class="btn btn-secondary" id="edit-btn">Edit</button>
-            <button onclick="confirmDelete()" class="btn btn-danger" id="delete-btn">Delete</button>
-            <div id="delete-confirm" style="display:none" class="delete-confirm">
-                <span>Delete this song?</span>
-                <form method="POST" action="/songs/{{ song.id }}/delete" style="display:inline">
-                    <button type="submit" class="btn btn-danger">Yes, delete</button>
-                </form>
-                <button onclick="cancelDelete()" class="btn btn-secondary">Cancel</button>
-            </div>
+{% block nav %}{% endblock %}
+
+{% block full_page %}
+
+<!-- SELECTION POPUP (edit mode) -->
+<div id="selection-popup">
+    <button class="popup-btn" onmousedown="convertSelection('verse_a')">Verse A</button>
+    <button class="popup-btn" onmousedown="convertSelection('verse_b')">Verse B</button>
+    <button class="popup-btn" onmousedown="convertSelection('chorus')">Chorus</button>
+    <button class="popup-btn" onmousedown="convertSelection('bridge')">Bridge</button>
+    <button class="popup-btn" onmousedown="convertSelection('part_c')">Part C</button>
+    <button class="popup-btn" onmousedown="convertSelection('part_d')">Part D</button>
+</div>
+
+<!-- ═══════════════════ VIEW SHELL ═══════════════════ -->
+<div class="editor-shell" id="view-shell">
+
+    <div class="editor-toolbar" id="view-toolbar">
+        <a href="/" class="tb-btn tb-back" title="All Songs">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        </a>
+        <span class="tb-title-display" style="cursor:default">
+            <span>{{ song.title }}</span>
+        </span>
+        <div class="tb-spacer"></div>
+        <button class="tb-btn" onclick="enterEdit()" title="Edit">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+        <button class="tb-btn tb-danger" onclick="confirmDelete()" title="Delete" id="delete-btn">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+        </button>
+        <div id="delete-confirm" style="display:none" class="delete-inline">
+            <span>Delete?</span>
+            <form method="POST" action="/songs/{{ song.id }}/delete" style="display:inline">
+                <button type="submit" class="btn btn-danger" style="padding:5px 12px;font-size:.8rem">Yes</button>
+            </form>
+            <button onclick="cancelDelete()" class="btn btn-secondary" style="padding:5px 12px;font-size:.8rem">No</button>
         </div>
     </div>
 
-    <!-- View mode -->
-    <div id="view-mode">
-        <h1>{{ song.title }}</h1>
-
-        {% if song.chords %}
-        <div class="content-section">
-            <h3>Chords</h3>
-            <p class="chords-display">{{ song.chords }}</p>
-        </div>
+    <div class="writing-area view-mode" id="view-content">
+        {% if song.cover_image %}
+        <img class="song-hero" src="/covers/{{ song.cover_image }}" alt="{{ song.title }}">
         {% endif %}
-
-        {% if song.lyrics %}
-        <div class="content-section">
-            <h3>Lyrics</h3>
-            <pre class="lyrics-display">{{ song.lyrics }}</pre>
-        </div>
-        {% endif %}
-
-        {% if not song.chords and not song.lyrics %}
-        <p class="empty-note">No lyrics or chords yet. Click Edit to add some.</p>
-        {% endif %}
-    </div>
-
-    <!-- Edit mode -->
-    <div id="edit-mode" style="display:none">
-        <form method="POST" action="/songs/{{ song.id }}/edit">
-            <div class="form-group">
-                <label for="edit-title">Song Title</label>
-                <input type="text" id="edit-title" name="title" value="{{ song.title }}" required>
-            </div>
-            <div class="form-group">
-                <label for="edit-lyrics">Lyrics</label>
-                <textarea id="edit-lyrics" name="lyrics" rows="12">{{ song.lyrics or '' }}</textarea>
-            </div>
-            <div class="form-group">
-                <label for="edit-chords">Chords</label>
-                <textarea id="edit-chords" name="chords" rows="3">{{ song.chords or '' }}</textarea>
-            </div>
-            <div class="form-actions">
-                <button type="submit" class="btn btn-primary">Save</button>
-                <button type="button" onclick="toggleEdit()" class="btn btn-secondary">Cancel</button>
-            </div>
-        </form>
-    </div>
-
-    <!-- Recording section -->
-    <div class="recording-section">
-        <h3>Recording</h3>
 
         {% if song.recording %}
-        <div class="existing-recording">
-            <audio controls src="/recordings/{{ song.recording }}" class="audio-player"></audio>
-            <p class="recording-note">A new recording will replace the existing one.</p>
+        <div class="view-recording">
+            <audio controls src="/recordings/{{ song.recording }}"></audio>
         </div>
         {% endif %}
 
-        <div class="recorder-controls">
-            <button id="record-btn" class="btn btn-record" onclick="startRecording()">
-                🎙 Start Recording
-            </button>
-            <button id="stop-btn" class="btn btn-stop" onclick="stopRecording()" style="display:none">
-                ⏹ Stop
-            </button>
-            <span id="recording-status" class="recording-status"></span>
-        </div>
+        {% if song.sections %}
+            {% for section in song.sections %}
+                {% if section.type == 'text' %}
+                    {% if section.lyrics %}
+                    <div class="view-text-block" dir="auto">{{ section.lyrics }}</div>
+                    {% endif %}
+                {% else %}
+                <div class="view-section">
+                    <div class="view-section-header">
+                        <span class="section-tag section-tag-{{ section.type }}">{{ section.label }}</span>
+                        {% if section.chords %}
+                        <span class="view-section-chords">{{ section.chords }}</span>
+                        {% endif %}
+                    </div>
+                    {% if section.lyrics %}
+                    <div class="view-lyrics" dir="auto">{{ section.lyrics }}</div>
+                    {% endif %}
+                </div>
+                {% endif %}
+            {% endfor %}
+        {% else %}
+            {% if song.chords %}
+            <div class="view-chords">{{ song.chords }}</div>
+            {% endif %}
+            <div class="view-lyrics" dir="auto">{{ song.lyrics or '' }}</div>
+        {% endif %}
+    </div>
+</div>
 
-        <div id="preview-section" style="display:none; margin-top:16px">
-            <p class="recording-note">Preview — click Save to keep it:</p>
-            <audio id="preview-player" controls></audio>
-            <div class="form-actions" style="margin-top:12px">
-                <button onclick="saveRecording()" class="btn btn-primary">💾 Save Recording</button>
-                <button onclick="discardRecording()" class="btn btn-secondary">Discard</button>
+<!-- ═══════════════════ EDIT SHELL ═══════════════════ -->
+<div class="editor-shell" id="edit-shell" style="display:none">
+
+    <div class="editor-toolbar">
+        <button class="tb-btn tb-back" onclick="exitEdit()" title="Cancel edit">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        </button>
+
+        <button class="tb-title-display" type="button" onclick="togglePanel('title-panel')" title="Set title">
+            <span id="title-label">{{ song.title }}</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+
+        <div class="tb-spacer"></div>
+
+        <button class="tb-btn" onclick="triggerImagePick()" title="Cover image">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+        </button>
+
+        <button class="tb-btn" onclick="togglePanel('rec-panel')" id="rec-tb-btn" title="Record">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="6" fill="currentColor" opacity=".25"/><circle cx="12" cy="12" r="4" fill="currentColor"/></svg>
+        </button>
+
+        <button class="tb-btn tb-save" type="button" onclick="submitEdit()" title="Save">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        </button>
+    </div>
+
+    <div class="panel" id="title-panel">
+        <label class="panel-label">Song title</label>
+        <input id="title-input" type="text" value="{{ song.title }}" placeholder="Leave empty to use first line" autocomplete="off">
+    </div>
+
+    <div class="panel" id="rec-panel">
+        {% if song.recording %}
+        <div style="margin-bottom:12px">
+            <audio controls src="/recordings/{{ song.recording }}" style="width:100%;max-width:400px"></audio>
+            <p class="panel-hint" style="margin-top:4px">Recording a new one will replace this.</p>
+        </div>
+        {% endif %}
+        <div class="rec-controls">
+            <button id="record-btn" class="rec-btn" onclick="startRecording()">
+                <span class="rec-dot"></span> Start recording
+            </button>
+            <button id="stop-btn" class="rec-btn rec-stop" onclick="stopRecording()" style="display:none">
+                <span class="stop-sq"></span> Stop
+            </button>
+            <span id="recording-status" class="rec-timer"></span>
+        </div>
+        <div id="preview-section" style="display:none; margin-top:12px">
+            <audio id="preview-player" controls style="width:100%; max-width:400px"></audio>
+            <div style="margin-top:8px; display:flex; gap:8px">
+                <button onclick="saveRecording()" class="btn btn-primary" style="font-size:.8rem;padding:6px 14px">💾 Save recording</button>
+                <button onclick="discardRecording()" class="btn btn-secondary" style="font-size:.8rem;padding:6px 14px">Discard</button>
             </div>
         </div>
-
         <div id="save-status" class="save-status"></div>
     </div>
 
+    {% if song.cover_image %}
+    <div id="cover-strip" class="cover-strip" style="display:flex">
+        <img id="cover-thumb" src="/covers/{{ song.cover_image }}" alt="cover">
+        <button onclick="removeCover()" class="cover-remove">✕</button>
+    </div>
+    {% else %}
+    <div id="cover-strip" class="cover-strip" style="display:none">
+        <img id="cover-thumb" src="" alt="cover">
+        <button onclick="removeCover()" class="cover-remove">✕</button>
+    </div>
+    {% endif %}
+
+    <form id="edit-form" method="POST" action="/songs/{{ song.id }}/edit" enctype="multipart/form-data">
+        <input type="hidden" name="title"    id="form-title">
+        <input type="hidden" name="sections" id="form-sections">
+        <input type="file"   name="cover_image" id="image-input" accept="image/*" style="display:none" onchange="handleImagePick(this)">
+
+        <div class="writing-area">
+            <div class="blocks-container" id="blocks-container"></div>
+        </div>
+    </form>
 </div>
 
 <script>
-    const SONG_ID = {{ song.id }};
-    const OPEN_EDIT = {{ 'true' if request.args.get('edit') else 'false' }};
+    const SONG_ID          = {{ song.id }};
+    const OPEN_EDIT        = {{ 'true' if request.args.get('edit') else 'false' }};
+    const INITIAL_SECTIONS = {{ song.sections | tojson if song.sections else 'null' }};
+    const OLD_CHORDS       = {{ (song.chords or '') | tojson }};
+    const OLD_LYRICS       = {{ (song.lyrics or '') | tojson }};
 </script>
+<script src="{{ url_for('static', filename='js/chords.js') }}"></script>
+<script src="{{ url_for('static', filename='js/block-editor.js') }}"></script>
 <script src="{{ url_for('static', filename='js/recorder.js') }}"></script>
 <script>
-    if (OPEN_EDIT) toggleEdit();
+function initEditor() {
+    const container = document.getElementById('blocks-container');
+    container.innerHTML = '';
+    blockCounter = 0;
 
-    function toggleEdit() {
-        const view = document.getElementById('view-mode');
-        const edit = document.getElementById('edit-mode');
-        const btn  = document.getElementById('edit-btn');
-        const isEditing = edit.style.display !== 'none';
-        view.style.display = isEditing ? 'block' : 'none';
-        edit.style.display = isEditing ? 'none'  : 'block';
-        btn.textContent    = isEditing ? 'Edit'  : 'Cancel';
+    if (INITIAL_SECTIONS && INITIAL_SECTIONS.length > 0) {
+        INITIAL_SECTIONS.forEach(sec => {
+            if (sec.type === 'text') {
+                container.appendChild(makeTextBlock(sec.lyrics || ''));
+            } else {
+                container.appendChild(makeSectionBlock(sec.type, sec.lyrics || '', sec.chords || ''));
+            }
+        });
+    } else if (OLD_LYRICS || OLD_CHORDS) {
+        container.appendChild(makeTextBlock(OLD_LYRICS));
+    } else {
+        container.appendChild(makeTextBlock(''));
     }
+    // Always ensure a text block at the end so the user can keep writing
+    const blocks = container.querySelectorAll('.block-item');
+    const last   = blocks[blocks.length - 1];
+    if (last && last.dataset.type !== 'text') container.appendChild(makeTextBlock(''));
+}
 
-    function confirmDelete() {
-        document.getElementById('delete-btn').style.display = 'none';
-        document.getElementById('delete-confirm').style.display = 'inline-flex';
-    }
+function enterEdit() {
+    document.getElementById('view-shell').style.display = 'none';
+    document.getElementById('edit-shell').style.display = 'flex';
+    initEditor();
+}
+function exitEdit() {
+    document.getElementById('edit-shell').style.display = 'none';
+    document.getElementById('view-shell').style.display = 'flex';
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('open'));
+    hidePopup();
+}
 
-    function cancelDelete() {
-        document.getElementById('delete-btn').style.display = 'inline-flex';
-        document.getElementById('delete-confirm').style.display = 'none';
-    }
+function triggerImagePick() { document.getElementById('image-input').click(); }
+function handleImagePick(input) {
+    if (!input.files || !input.files[0]) return;
+    document.getElementById('cover-thumb').src = URL.createObjectURL(input.files[0]);
+    document.getElementById('cover-strip').style.display = 'flex';
+}
+function removeCover() {
+    document.getElementById('image-input').value = '';
+    document.getElementById('cover-strip').style.display = 'none';
+}
+
+function confirmDelete() {
+    document.getElementById('delete-btn').style.display = 'none';
+    document.getElementById('delete-confirm').style.display = 'inline-flex';
+}
+function cancelDelete() {
+    document.getElementById('delete-btn').style.display = 'flex';
+    document.getElementById('delete-confirm').style.display = 'none';
+}
+
+function submitEdit() {
+    document.getElementById('form-sections').value = JSON.stringify(collectSections());
+    document.getElementById('form-title').value    = document.getElementById('title-input').value.trim();
+    document.getElementById('edit-form').submit();
+}
+
+document.getElementById('title-input').addEventListener('input', updateTitlePreview);
+
+if (OPEN_EDIT) enterEdit();
 </script>
 {% endblock %}

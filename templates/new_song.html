@@ -1,24 +1,127 @@
 {% extends 'base.html' %}
-{% block content %}
-<div class="form-page">
-    <h1>New Song</h1>
-    <form method="POST" action="/songs">
-        <div class="form-group">
-            <label for="title">Song Title</label>
-            <input type="text" id="title" name="title" required placeholder="Song title...">
+
+{% block nav %}{% endblock %}
+
+{% block full_page %}
+
+<!-- SELECTION POPUP (global, fixed position) -->
+<div id="selection-popup">
+    <button class="popup-btn" onmousedown="convertSelection('verse_a')">Verse A</button>
+    <button class="popup-btn" onmousedown="convertSelection('verse_b')">Verse B</button>
+    <button class="popup-btn" onmousedown="convertSelection('chorus')">Chorus</button>
+    <button class="popup-btn" onmousedown="convertSelection('bridge')">Bridge</button>
+    <button class="popup-btn" onmousedown="convertSelection('part_c')">Part C</button>
+    <button class="popup-btn" onmousedown="convertSelection('part_d')">Part D</button>
+</div>
+
+<div class="editor-shell">
+
+    <!-- TOOLBAR -->
+    <div class="editor-toolbar">
+        <a href="/" class="tb-btn tb-back" title="All Songs">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        </a>
+
+        <button class="tb-title-display" type="button" onclick="togglePanel('title-panel')" title="Set title">
+            <span id="title-label">Untitled</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+
+        <div class="tb-spacer"></div>
+
+        <button class="tb-btn" onclick="triggerImagePick()" title="Add cover image">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+        </button>
+
+        <button class="tb-btn" onclick="togglePanel('rec-panel')" id="rec-tb-btn" title="Record">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="6" fill="currentColor" opacity=".25"/><circle cx="12" cy="12" r="4" fill="currentColor"/></svg>
+        </button>
+
+        <button class="tb-btn tb-save" type="button" onclick="submitForm()" title="Save">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        </button>
+    </div>
+
+    <!-- TITLE PANEL -->
+    <div class="panel" id="title-panel">
+        <label class="panel-label">Song title</label>
+        <input id="title-input" type="text" placeholder="Leave empty to use first line" autocomplete="off">
+    </div>
+
+    <!-- RECORDING PANEL -->
+    <div class="panel" id="rec-panel">
+        <div class="rec-controls">
+            <button id="record-btn" class="rec-btn" onclick="startRecording()">
+                <span class="rec-dot"></span> Start recording
+            </button>
+            <button id="stop-btn" class="rec-btn rec-stop" onclick="stopRecording()" style="display:none">
+                <span class="stop-sq"></span> Stop
+            </button>
+            <span id="recording-status" class="rec-timer"></span>
         </div>
-        <div class="form-group">
-            <label for="lyrics">Lyrics</label>
-            <textarea id="lyrics" name="lyrics" rows="12" placeholder="Write your lyrics here..."></textarea>
+        <div id="preview-section" style="display:none; margin-top:12px">
+            <audio id="preview-player" controls style="width:100%; max-width:400px"></audio>
+            <div style="margin-top:8px; display:flex; gap:8px">
+                <button onclick="markRecordingReady()" class="btn btn-primary" style="font-size:.8rem; padding:6px 14px">Keep</button>
+                <button onclick="discardRecording()" class="btn btn-secondary" style="font-size:.8rem; padding:6px 14px">Discard</button>
+            </div>
         </div>
-        <div class="form-group">
-            <label for="chords">Chords</label>
-            <textarea id="chords" name="chords" rows="3" placeholder="e.g. Am G F E"></textarea>
-        </div>
-        <div class="form-actions">
-            <button type="submit" class="btn btn-primary">Save</button>
-            <a href="/" class="btn btn-secondary">Cancel</a>
+    </div>
+
+    <!-- Cover strip -->
+    <div id="cover-strip" style="display:none" class="cover-strip">
+        <img id="cover-thumb" src="" alt="cover">
+        <button onclick="removeCover()" class="cover-remove">✕</button>
+    </div>
+
+    <!-- FORM -->
+    <form id="main-form" method="POST" action="/songs" enctype="multipart/form-data">
+        <input type="hidden" name="title"    id="form-title">
+        <input type="hidden" name="sections" id="form-sections">
+        <input type="file"   name="cover_image" id="image-input" accept="image/*" style="display:none" onchange="handleImagePick(this)">
+        <input type="hidden" name="_has_recording" id="has-recording" value="0">
+
+        <div class="writing-area">
+            <div class="blocks-container" id="blocks-container"></div>
         </div>
     </form>
+
 </div>
+
+<script src="{{ url_for('static', filename='js/chords.js') }}"></script>
+<script src="{{ url_for('static', filename='js/block-editor.js') }}"></script>
+<script src="{{ url_for('static', filename='js/recorder.js') }}"></script>
+<script>
+let SONG_ID    = null;
+let pendingBlob = null;
+
+function triggerImagePick() { document.getElementById('image-input').click(); }
+function handleImagePick(input) {
+    if (!input.files || !input.files[0]) return;
+    document.getElementById('cover-thumb').src = URL.createObjectURL(input.files[0]);
+    document.getElementById('cover-strip').style.display = 'flex';
+}
+function removeCover() {
+    document.getElementById('image-input').value = '';
+    document.getElementById('cover-strip').style.display = 'none';
+}
+
+function markRecordingReady() {
+    pendingBlob = audioBlob;
+    document.getElementById('has-recording').value = '1';
+    document.getElementById('rec-panel').classList.remove('open');
+    document.getElementById('rec-tb-btn').classList.add('active');
+}
+
+function submitForm() {
+    document.getElementById('form-sections').value = JSON.stringify(collectSections());
+    document.getElementById('form-title').value    = document.getElementById('title-input').value.trim();
+    document.getElementById('main-form').submit();
+}
+
+document.getElementById('title-input').addEventListener('input', updateTitlePreview);
+
+document.getElementById('blocks-container').appendChild(makeTextBlock(''));
+document.querySelector('.raw-editor').focus();
+</script>
 {% endblock %}
