@@ -9,9 +9,10 @@ const SECTION_LABELS = {
     part_d:  'Part D'
 };
 
-let blockCounter   = 0;
-let popupState     = null;
-let selectionTimer = null;
+let blockCounter    = 0;
+let popupState      = null;
+let selectionTimer  = null;
+let lastEditorState = null; // tracks which textarea was last active
 
 function nextId() { return ++blockCounter; }
 
@@ -61,20 +62,28 @@ function scheduleEval(ta, blockId, delay) {
     selectionTimer = setTimeout(() => evalSelection(ta, blockId), delay);
 }
 
-/* ── selectionchange (most reliable on iOS) ── */
+/* ── selectionchange — fires on desktop; on iOS uses lastEditorState fallback ── */
 document.addEventListener('selectionchange', () => {
     const active = document.activeElement;
-    if (!active) return;
-    const isEditor = active.classList.contains('raw-editor') || active.classList.contains('section-lyrics');
-    if (!isEditor) return;
-    const blockItem = active.closest('.block-item');
-    if (!blockItem) return;
-    scheduleEval(active, blockItem.dataset.blockId, 80);
+    const isEditor = active && (
+        active.classList.contains('raw-editor') ||
+        active.classList.contains('section-lyrics')
+    );
+    const state = isEditor
+        ? { ta: active, blockId: active.closest('.block-item')?.dataset.blockId }
+        : lastEditorState;
+    if (!state?.blockId) return;
+    scheduleEval(state.ta, state.blockId, 80);
 });
 
-/* ── mouseup fallback (desktop) ── */
+/* ── mouseup / touchend handlers (set on each textarea) ── */
 function handleSelection(ta, blockId) {
+    lastEditorState = { ta, blockId };
     scheduleEval(ta, blockId, 150);
+}
+function handleTouchEnd(ta, blockId) {
+    lastEditorState = { ta, blockId };
+    scheduleEval(ta, blockId, 250);
 }
 
 /* ── section bar clicks — prevent blur on touch, convert on click ── */
@@ -111,8 +120,10 @@ function makeTextBlock(content) {
     ta.dir         = 'auto';
     ta.value       = content || '';
     ta.placeholder = 'Write here...';
-    ta.addEventListener('input', () => { autoResize(ta); updateTitlePreview(); });
+    ta.addEventListener('input',    () => { autoResize(ta); updateTitlePreview(); });
+    ta.addEventListener('focus',    () => { lastEditorState = { ta, blockId: id }; });
     ta.addEventListener('mouseup',  () => handleSelection(ta, id));
+    ta.addEventListener('touchend', () => handleTouchEnd(ta, id));
     ta.addEventListener('keyup',    () => { if (ta.selectionStart === ta.selectionEnd) hidePopup(); });
 
     div.appendChild(ta);
@@ -195,8 +206,10 @@ function makeSectionBlock(type, lyrics, chords) {
     lyricsArea.dir         = 'auto';
     lyricsArea.value       = lyrics || '';
     lyricsArea.placeholder = `Write ${SECTION_LABELS[type]} lyrics...`;
-    lyricsArea.addEventListener('input', () => { autoResize(lyricsArea); updateTitlePreview(); });
+    lyricsArea.addEventListener('input',    () => { autoResize(lyricsArea); updateTitlePreview(); });
+    lyricsArea.addEventListener('focus',    () => { lastEditorState = { ta: lyricsArea, blockId: id }; });
     lyricsArea.addEventListener('mouseup',  () => handleSelection(lyricsArea, id));
+    lyricsArea.addEventListener('touchend', () => handleTouchEnd(lyricsArea, id));
     lyricsArea.addEventListener('keyup',    () => { if (lyricsArea.selectionStart === lyricsArea.selectionEnd) hidePopup(); });
 
     div.appendChild(header);
