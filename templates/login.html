@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block nav %}{% endblock %}
+{% block full_page %}
+<div class="login-shell">
+    <div class="login-card">
+        <div class="login-logo">🎵</div>
+        <h1 class="login-title">מגירת שירים</h1>
+        <form method="POST" class="login-form">
+            <input
+                type="password"
+                name="password"
+                placeholder="סיסמה"
+                autofocus
+                autocomplete="current-password"
+                class="login-input {% if error %}login-input-error{% endif %}"
+            >
+            {% if error %}
+            <p class="login-error">סיסמה שגויה</p>
+            {% endif %}
+            <button type="submit" class="btn btn-primary login-btn">כניסה</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
