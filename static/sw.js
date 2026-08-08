@@ -1,5 +1,5 @@
 // Service worker for מגירת שירים PWA
-const CACHE = 'songdrawer-v1';
+const CACHE = 'songdrawer-v2';
 const STATIC_ASSETS = [
     '/static/css/style.css',
     '/static/js/chords.js',
