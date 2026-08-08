@@ -9,10 +9,11 @@ const SECTION_LABELS = {
     part_d:  'Part D'
 };
 
-let blockCounter    = 0;
-let popupState      = null;
-let selectionTimer  = null;
-let lastEditorState = null; // tracks which textarea was last active
+let blockCounter  = 0;
+let popupState    = null;
+let pollInterval  = null;
+let pollTA        = null;
+let pollBlockId   = null;
 
 function nextId() { return ++blockCounter; }
 
@@ -28,7 +29,7 @@ function togglePanel(id) {
     document.getElementById(id).classList.toggle('open');
 }
 
-/* ── section bar ── */
+/* ── section bar state ── */
 function setSelectionActive(on) {
     document.querySelectorAll('.section-bar-btn').forEach(b => b.classList.toggle('active', on));
 }
@@ -38,13 +39,13 @@ function hidePopup() {
     setSelectionActive(false);
 }
 
-/* ── selection tracking ── */
+/* ── selection eval ── */
 function evalSelection(ta, blockId) {
+    if (!ta || !document.contains(ta)) return;
     const start = ta.selectionStart;
     const end   = ta.selectionEnd;
     if (start !== end && ta.value.substring(start, end).trim()) {
         const fullText = ta.value;
-        // Pre-compute everything now so focus-loss doesn't matter
         popupState = {
             blockId,
             before:   fullText.substring(0, start).trimEnd(),
@@ -57,40 +58,32 @@ function evalSelection(ta, blockId) {
     }
 }
 
-function scheduleEval(ta, blockId, delay) {
-    clearTimeout(selectionTimer);
-    selectionTimer = setTimeout(() => evalSelection(ta, blockId), delay);
+/* ── polling: runs while a textarea has focus ── */
+function startPoll(ta, blockId) {
+    pollTA      = ta;
+    pollBlockId = blockId;
+    if (pollInterval) return;
+    pollInterval = setInterval(() => {
+        if (pollTA && document.contains(pollTA)) {
+            evalSelection(pollTA, pollBlockId);
+        } else {
+            stopPoll();
+        }
+    }, 200);
 }
 
-/* ── selectionchange — fires on desktop; on iOS uses lastEditorState fallback ── */
-document.addEventListener('selectionchange', () => {
-    const active = document.activeElement;
-    const isEditor = active && (
-        active.classList.contains('raw-editor') ||
-        active.classList.contains('section-lyrics')
-    );
-    const state = isEditor
-        ? { ta: active, blockId: active.closest('.block-item')?.dataset.blockId }
-        : lastEditorState;
-    if (!state?.blockId) return;
-    scheduleEval(state.ta, state.blockId, 80);
-});
-
-/* ── mouseup / touchend handlers (set on each textarea) ── */
-function handleSelection(ta, blockId) {
-    lastEditorState = { ta, blockId };
-    scheduleEval(ta, blockId, 150);
-}
-function handleTouchEnd(ta, blockId) {
-    lastEditorState = { ta, blockId };
-    scheduleEval(ta, blockId, 250);
+function stopPoll() {
+    if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+    pollTA = pollBlockId = null;
+    // delay so touchstart on section bar can fire before we clear state
+    setTimeout(() => { if (!pollTA) hidePopup(); }, 350);
 }
 
-/* ── section bar clicks — prevent blur on touch, convert on click ── */
+/* ── section bar: touchstart (iOS) + click (desktop) ── */
 document.addEventListener('touchstart', e => {
     const btn = e.target.closest('.section-bar-btn');
     if (!btn || !btn.classList.contains('active')) return;
-    e.preventDefault(); // keep textarea focused & selection intact
+    e.preventDefault(); // prevent blur on the textarea
     convertSelection(btn.dataset.type);
 }, { passive: false });
 
@@ -100,10 +93,9 @@ document.addEventListener('click', e => {
     convertSelection(btn.dataset.type);
 });
 
-/* ── close on outside click ── */
+/* ── hide on outside click ── */
 document.addEventListener('mousedown', e => {
-    if (e.target.closest('.section-bar-btn')) return;
-    if (e.target.closest('.raw-editor, .section-lyrics')) return;
+    if (e.target.closest('.section-bar-btn, .raw-editor, .section-lyrics')) return;
     hidePopup();
 });
 
@@ -120,11 +112,11 @@ function makeTextBlock(content) {
     ta.dir         = 'auto';
     ta.value       = content || '';
     ta.placeholder = 'Write here...';
-    ta.addEventListener('input',    () => { autoResize(ta); updateTitlePreview(); });
-    ta.addEventListener('focus',    () => { lastEditorState = { ta, blockId: id }; });
-    ta.addEventListener('mouseup',  () => handleSelection(ta, id));
-    ta.addEventListener('touchend', () => handleTouchEnd(ta, id));
-    ta.addEventListener('keyup',    () => { if (ta.selectionStart === ta.selectionEnd) hidePopup(); });
+    ta.addEventListener('input', () => { autoResize(ta); updateTitlePreview(); });
+    ta.addEventListener('focus', () => startPoll(ta, id));
+    ta.addEventListener('blur',  stopPoll);
+    ta.addEventListener('mouseup', () => evalSelection(ta, id)); // immediate on desktop
+    ta.addEventListener('keyup',   () => { if (ta.selectionStart === ta.selectionEnd) hidePopup(); });
 
     div.appendChild(ta);
     setTimeout(() => autoResize(ta), 0);
@@ -206,11 +198,11 @@ function makeSectionBlock(type, lyrics, chords) {
     lyricsArea.dir         = 'auto';
     lyricsArea.value       = lyrics || '';
     lyricsArea.placeholder = `Write ${SECTION_LABELS[type]} lyrics...`;
-    lyricsArea.addEventListener('input',    () => { autoResize(lyricsArea); updateTitlePreview(); });
-    lyricsArea.addEventListener('focus',    () => { lastEditorState = { ta: lyricsArea, blockId: id }; });
-    lyricsArea.addEventListener('mouseup',  () => handleSelection(lyricsArea, id));
-    lyricsArea.addEventListener('touchend', () => handleTouchEnd(lyricsArea, id));
-    lyricsArea.addEventListener('keyup',    () => { if (lyricsArea.selectionStart === lyricsArea.selectionEnd) hidePopup(); });
+    lyricsArea.addEventListener('input', () => { autoResize(lyricsArea); updateTitlePreview(); });
+    lyricsArea.addEventListener('focus', () => startPoll(lyricsArea, id));
+    lyricsArea.addEventListener('blur',  stopPoll);
+    lyricsArea.addEventListener('mouseup', () => evalSelection(lyricsArea, id));
+    lyricsArea.addEventListener('keyup',   () => { if (lyricsArea.selectionStart === lyricsArea.selectionEnd) hidePopup(); });
 
     div.appendChild(header);
     div.appendChild(lyricsArea);
@@ -227,6 +219,7 @@ function makeSectionBlock(type, lyrics, chords) {
 function convertSelection(type) {
     if (!popupState) return;
     const { blockId, before, selected, after } = popupState;
+    stopPoll();
     hidePopup();
 
     const blockItem = document.querySelector(`.block-item[data-block-id="${blockId}"]`);
