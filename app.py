@@ -1,9 +1,7 @@
-from flask import Flask, render_template, request, redirect, url_for, send_from_directory, abort, session
+from flask import Flask, render_template, request, redirect, url_for, send_from_directory, abort
 import os
 import time
 import json
-import hashlib
-import secrets
 from database import get_db, init_db
 
 app = Flask(__name__)
@@ -11,52 +9,20 @@ RECORDINGS_DIR = os.path.join(app.static_folder, 'recordings')
 COVERS_DIR = os.path.join(app.static_folder, 'covers')
 ALLOWED_IMAGE_EXTS = {'jpg', 'jpeg', 'png', 'gif', 'webp', 'heic'}
 
-_pw = os.environ.get('ADMIN_PASSWORD', '')
-app.secret_key = os.environ.get('SECRET_KEY', hashlib.sha256(_pw.encode()).hexdigest())
-
 
 def allowed_image(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_IMAGE_EXTS
 
 
-def is_admin():
-    return session.get('admin') is True
-
-
-# ── Auth ──────────────────────────────────────────────────────────────────────
-
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        password = request.form.get('password', '')
-        admin_pw = os.environ.get('ADMIN_PASSWORD', '')
-        if admin_pw and secrets.compare_digest(password, admin_pw):
-            session['admin'] = True
-            return redirect(request.args.get('next') or url_for('index'))
-        return render_template('login.html', error=True)
-    return render_template('login.html', error=False)
-
-
-@app.route('/logout')
-def logout():
-    session.pop('admin', None)
-    return redirect(url_for('index'))
-
-
-# ── Routes ────────────────────────────────────────────────────────────────────
-
 @app.route('/')
 def index():
     conn = get_db()
-    cur  = conn.cursor()
-    if is_admin():
-        cur.execute("SELECT id, title, created_at, cover_image FROM songs ORDER BY created_at DESC")
-    else:
-        cur.execute("SELECT id, title, created_at, cover_image FROM songs WHERE is_private = FALSE ORDER BY created_at DESC")
+    cur = conn.cursor()
+    cur.execute("SELECT id, title, created_at, cover_image FROM songs ORDER BY created_at DESC")
     songs = cur.fetchall()
     cur.close()
     conn.close()
-    return render_template('index.html', songs=songs, admin=is_admin())
+    return render_template('index.html', songs=songs)
 
 
 @app.route('/sw.js')
@@ -73,7 +39,7 @@ def new_song():
 
 @app.route('/songs', methods=['POST'])
 def create_song():
-    title        = request.form.get('title', '').strip()
+    title = request.form.get('title', '').strip()
     sections_raw = request.form.get('sections', '')
     if not title:
         try:
@@ -89,19 +55,18 @@ def create_song():
             pass
         title = title or 'Untitled'
     sections_json = sections_raw if sections_raw else None
-    private       = is_admin()  # admin's songs are private
     conn = get_db()
-    cur  = conn.cursor()
+    cur = conn.cursor()
     cur.execute(
-        "INSERT INTO songs (title, sections, is_private) VALUES (%s, %s, %s) RETURNING id",
-        (title, sections_json, private)
+        "INSERT INTO songs (title, sections) VALUES (%s, %s) RETURNING id",
+        (title, sections_json)
     )
     song_id = cur.fetchone()[0]
     conn.commit()
 
     cover = request.files.get('cover_image')
     if cover and cover.filename and allowed_image(cover.filename):
-        ext      = cover.filename.rsplit('.', 1)[1].lower()
+        ext = cover.filename.rsplit('.', 1)[1].lower()
         filename = f"{song_id}_{int(time.time())}.{ext}"
         cover.save(os.path.join(COVERS_DIR, filename))
         cur.execute("UPDATE songs SET cover_image=%s WHERE id=%s", (filename, song_id))
@@ -115,9 +80,9 @@ def create_song():
 @app.route('/songs/<int:song_id>')
 def song(song_id):
     conn = get_db()
-    cur  = conn.cursor()
+    cur = conn.cursor()
     cur.execute(
-        "SELECT id, title, lyrics, chords, recording, created_at, cover_image, sections, is_private FROM songs WHERE id = %s",
+        "SELECT id, title, lyrics, chords, recording, created_at, cover_image, sections FROM songs WHERE id = %s",
         (song_id,)
     )
     row = cur.fetchone()
@@ -125,8 +90,6 @@ def song(song_id):
     conn.close()
     if row is None:
         abort(404)
-    if row[8] and not is_admin():  # private song, not admin
-        return redirect(url_for('index'))
     sections = None
     if row[7]:
         try:
@@ -141,15 +104,7 @@ def song(song_id):
 
 @app.route('/songs/<int:song_id>/edit', methods=['POST'])
 def edit_song(song_id):
-    conn = get_db()
-    cur  = conn.cursor()
-    cur.execute("SELECT is_private FROM songs WHERE id=%s", (song_id,))
-    row = cur.fetchone()
-    if row and row[0] and not is_admin():
-        cur.close(); conn.close()
-        return redirect(url_for('index'))
-
-    title        = request.form.get('title', '').strip()
+    title = request.form.get('title', '').strip()
     sections_raw = request.form.get('sections', '')
     if not title:
         try:
@@ -164,9 +119,12 @@ def edit_song(song_id):
         except Exception:
             pass
         title = title or 'Untitled'
+    sections_json = sections_raw if sections_raw else None
+    conn = get_db()
+    cur = conn.cursor()
     cur.execute(
         "UPDATE songs SET title=%s, lyrics=NULL, chords=NULL, sections=%s, updated_at=NOW() WHERE id=%s",
-        (title, sections_raw if sections_raw else None, song_id)
+        (title, sections_json, song_id)
     )
 
     cover = request.files.get('cover_image')
@@ -177,7 +135,7 @@ def edit_song(song_id):
             old_path = os.path.join(COVERS_DIR, old_row[0])
             if os.path.exists(old_path):
                 os.remove(old_path)
-        ext      = cover.filename.rsplit('.', 1)[1].lower()
+        ext = cover.filename.rsplit('.', 1)[1].lower()
         filename = f"{song_id}_{int(time.time())}.{ext}"
         cover.save(os.path.join(COVERS_DIR, filename))
         cur.execute("UPDATE songs SET cover_image=%s WHERE id=%s", (filename, song_id))
@@ -191,19 +149,18 @@ def edit_song(song_id):
 @app.route('/songs/<int:song_id>/delete', methods=['POST'])
 def delete_song(song_id):
     conn = get_db()
-    cur  = conn.cursor()
-    cur.execute("SELECT recording, cover_image, is_private FROM songs WHERE id=%s", (song_id,))
+    cur = conn.cursor()
+    cur.execute("SELECT recording, cover_image FROM songs WHERE id=%s", (song_id,))
     row = cur.fetchone()
-    if row and row[2] and not is_admin():
-        cur.close(); conn.close()
-        return redirect(url_for('index'))
     if row:
         if row[0]:
             p = os.path.join(RECORDINGS_DIR, row[0])
-            if os.path.exists(p): os.remove(p)
+            if os.path.exists(p):
+                os.remove(p)
         if row[1]:
             p = os.path.join(COVERS_DIR, row[1])
-            if os.path.exists(p): os.remove(p)
+            if os.path.exists(p):
+                os.remove(p)
     cur.execute("DELETE FROM songs WHERE id=%s", (song_id,))
     conn.commit()
     cur.close()
@@ -217,18 +174,19 @@ def bulk_delete():
     if not ids:
         return redirect(url_for('index'))
     conn = get_db()
-    cur  = conn.cursor()
+    cur = conn.cursor()
     for song_id in ids:
-        cur.execute("SELECT recording, cover_image, is_private FROM songs WHERE id=%s", (song_id,))
+        cur.execute("SELECT recording, cover_image FROM songs WHERE id=%s", (song_id,))
         row = cur.fetchone()
-        if not row: continue
-        if row[2] and not is_admin(): continue  # skip private songs for non-admin
-        if row[0]:
-            p = os.path.join(RECORDINGS_DIR, row[0])
-            if os.path.exists(p): os.remove(p)
-        if row[1]:
-            p = os.path.join(COVERS_DIR, row[1])
-            if os.path.exists(p): os.remove(p)
+        if row:
+            if row[0]:
+                p = os.path.join(RECORDINGS_DIR, row[0])
+                if os.path.exists(p):
+                    os.remove(p)
+            if row[1]:
+                p = os.path.join(COVERS_DIR, row[1])
+                if os.path.exists(p):
+                    os.remove(p)
         cur.execute("DELETE FROM songs WHERE id=%s", (song_id,))
     conn.commit()
     cur.close()
@@ -238,26 +196,17 @@ def bulk_delete():
 
 @app.route('/songs/<int:song_id>/recording', methods=['POST'])
 def upload_recording(song_id):
-    conn = get_db()
-    cur  = conn.cursor()
-    cur.execute("SELECT recording, is_private FROM songs WHERE id=%s", (song_id,))
-    row = cur.fetchone()
-    if not row:
-        cur.close(); conn.close()
-        return 'not found', 404
-    if row[1] and not is_admin():
-        cur.close(); conn.close()
-        return 'unauthorized', 401
-
     audio = request.files.get('audio')
     if not audio:
-        cur.close(); conn.close()
         return 'no audio', 400
-
-    if row[0]:
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT recording FROM songs WHERE id=%s", (song_id,))
+    row = cur.fetchone()
+    if row and row[0]:
         old = os.path.join(RECORDINGS_DIR, row[0])
-        if os.path.exists(old): os.remove(old)
-
+        if os.path.exists(old):
+            os.remove(old)
     orig_name = audio.filename or 'recording.webm'
     ext = orig_name.rsplit('.', 1)[1].lower() if '.' in orig_name else 'webm'
     if ext not in ('webm', 'mp4', 'ogg', 'm4a'):
@@ -281,6 +230,7 @@ def serve_cover(filename):
     return send_from_directory(COVERS_DIR, filename)
 
 
+# Run on startup (whether via gunicorn or python app.py)
 os.makedirs(RECORDINGS_DIR, exist_ok=True)
 os.makedirs(COVERS_DIR, exist_ok=True)
 init_db()

@@ -16,14 +16,7 @@
     {% block nav %}
     <nav>
         <a href="/" class="nav-logo">🎵 Song Drawer</a>
-        <div style="display:flex;align-items:center;gap:10px">
-            {% if session.get('admin') %}
-            <a href="/songs/new" class="btn btn-primary">+ New Song</a>
-            <a href="/logout" class="nav-lock" title="Logout">🔓</a>
-            {% else %}
-            <a href="/login" class="nav-lock" title="Login">🔒</a>
-            {% endif %}
-        </div>
+        <a href="/songs/new" class="btn btn-primary">+ New Song</a>
     </nav>
     {% endblock %}
     {% block full_page %}

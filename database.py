@@ -41,9 +41,6 @@ def init_db():
     cur.execute("""
         ALTER TABLE songs ADD COLUMN IF NOT EXISTS sections TEXT
     """)
-    cur.execute("""
-        ALTER TABLE songs ADD COLUMN IF NOT EXISTS is_private BOOLEAN DEFAULT FALSE
-    """)
     conn.commit()
     cur.close()
     conn.close()
